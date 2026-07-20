@@ -24,7 +24,7 @@ from pathlib import Path
 import numpy as np
 
 try:
-    from rtmlib import RTMPose, RTMDet
+    from rtmlib import Body, PoseTracker, draw_skeleton as rtm_draw_skeleton
 except ImportError:
     print("ERROR: rtmlib not installed. Run: pip install rtmlib onnxruntime")
     exit(1)
@@ -50,25 +50,24 @@ SKELETON = [
 ]
 
 
-def draw_skeleton(frame, keypoints, scores, score_thr=0.3):
+def draw_skeleton_cv(frame, keypoints, scores, score_thr=0.3):
     """
     Draw pose skeleton overlay on a frame.
     keypoints: (17, 2) array of x,y coords
     scores: (17,) confidence scores
     """
     vis = frame.copy()
-    h, w = vis.shape[:2]
 
     # Draw bones
     for i, j in SKELETON:
-        if scores[i] > score_thr and scores[j] > score_thr:
+        if i < len(scores) and j < len(scores) and scores[i] > score_thr and scores[j] > score_thr:
             pt1 = tuple(keypoints[i].astype(int))
             pt2 = tuple(keypoints[j].astype(int))
             cv2.line(vis, pt1, pt2, (0, 255, 0), 2, cv2.LINE_AA)
 
     # Draw joints
     for idx, (x, y) in enumerate(keypoints):
-        if scores[idx] > score_thr:
+        if idx < len(scores) and scores[idx] > score_thr:
             cv2.circle(vis, (int(x), int(y)), 4, (0, 165, 255), -1, cv2.LINE_AA)
 
     return vis
@@ -95,7 +94,7 @@ def run_inference(
         out_json: Output keypoints JSON path (default: <video>_keypoints.json)
         out_video: Output skeleton-overlay MP4 path (default: <video>_pose.mp4)
         device: 'cpu' (recommended for M4) or 'cuda' if available
-        det_score_thr: RTMDet person detection confidence threshold
+        det_score_thr: detection confidence threshold (passed to draw filter, PoseTracker handles det internally)
     """
     video_path = Path(video_path)
     if not video_path.exists():
@@ -110,26 +109,18 @@ def run_inference(
     print(f"[*] Loading RTMPose models (first run downloads weights)...")
     print(f"    Device: {device}  |  Apple Silicon M4: use 'cpu' (no CUDA needed)")
 
-    # RTMDet: person detector (finds bounding box)
-    # 'body' backend = RTMDet-m, fast and accurate
-    det = RTMDet(
-        onnx_model='RTMDet-m',
-        model_input_size=(640, 640),
-        backend='onnxruntime',
-        device=device
-    )
-
-    # RTMPose: 2D keypoint estimator
-    # 'body' = RTMPose-m, 17 COCO keypoints, ~75 FPS on M4 CPU
-    pose = RTMPose(
-        onnx_model='RTMPose-m',
-        model_input_size=(192, 256),
+    # PoseTracker(Body) = YOLOX detector + RTMPose estimator, all-in-one
+    # mode='balanced' ≈ RTMPose-m accuracy/speed tradeoff, good for M4
+    # modes: 'performance' (bigger, slower), 'balanced', 'lightweight' (fastest)
+    pose_tracker = PoseTracker(
+        Body,
+        mode='balanced',
         backend='onnxruntime',
         device=device
     )
 
     cap = cv2.VideoCapture(str(video_path))
-    fps = cap.get(cv2.CAP_PROP_FPS)
+    fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -137,8 +128,13 @@ def run_inference(
     print(f"[*] Video: {width}x{height} @ {fps:.2f} FPS, {total_frames} frames")
 
     # Video writer for skeleton overlay
-    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    # Use 'avc1' for better browser/Streamlit compatibility on macOS
+    fourcc = cv2.VideoWriter_fourcc(*'avc1')
     out_wr = cv2.VideoWriter(str(out_video), fourcc, fps, (width, height))
+    if not out_wr.isOpened():
+        # Fall back to mp4v if avc1 codec unavailable
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out_wr = cv2.VideoWriter(str(out_video), fourcc, fps, (width, height))
 
     frames_kpts = []
     frame_idx = 0
@@ -149,28 +145,25 @@ def run_inference(
         if not ret:
             break
 
-        # 1. Detect people in frame → bounding boxes
-        bboxes = det(frame)
+        # PoseTracker does detection + pose estimation in one call
+        # Returns: keypoints (N, 17, 2), scores (N, 17)
+        keypoints, scores = pose_tracker(frame)
 
-        if len(bboxes) == 0:
+        if keypoints is None or len(keypoints) == 0 or scores is None or len(scores) == 0:
             # No person detected: write empty keypoints
             kpts = np.zeros((17, 2), dtype=np.float32)
-            scores = np.zeros(17, dtype=np.float32)
+            scrs = np.zeros(17, dtype=np.float32)
             vis_frame = frame
         else:
-            # Pick largest detection (closest runner)
-            areas = [(b[2] - b[0]) * (b[3] - b[1]) for b in bboxes]
-            bbox = bboxes[np.argmax(areas)]
-
-            # 2. Estimate 2D keypoints within bbox
-            keypoints, scores = pose(frame, bboxes=[bbox])
-
-            # pose() returns (N, 17, 2) keypoints, (N, 17) scores
-            kpts = keypoints[0]  # first person
-            scores = scores[0]
-
+            # Take first / largest person (PoseTracker usually returns 1)
+            kpts = keypoints[0]
+            scrs = scores[0]
             # Draw skeleton overlay
-            vis_frame = draw_skeleton(frame, kpts, scores)
+            try:
+                # Try rtmlib's built-in draw first
+                vis_frame = rtm_draw_skeleton(frame, keypoints, scores, kpt_thr=det_score_thr)
+            except Exception:
+                vis_frame = draw_skeleton_cv(frame, kpts, scrs, score_thr=det_score_thr)
 
         out_wr.write(vis_frame)
 
@@ -179,11 +172,11 @@ def run_inference(
             'frame': frame_idx,
             'time_s': frame_idx / fps,
             'keypoints': kpts.tolist(),  # [[x, y], ...] × 17
-            'scores': scores.tolist(),
+            'scores': scrs.tolist(),
         })
 
         frame_idx += 1
-        if frame_idx % 100 == 0 or frame_idx == total_frames:
+        if frame_idx % 60 == 0 or frame_idx == total_frames:
             print(f"  {frame_idx}/{total_frames} frames")
 
     cap.release()
@@ -219,7 +212,7 @@ def main():
     parser.add_argument('--device', default='cpu',
                         help='onnxruntime device: cpu (recommended for M4) or cuda')
     parser.add_argument('--det-thr', type=float, default=0.5,
-                        help='RTMDet person detection confidence threshold')
+                        help='keypoint confidence threshold for visualization')
     args = parser.parse_args()
 
     run_inference(

@@ -1,4 +1,4 @@
-rtmlib>=1.0.0
+rtmlib
 opencv-python>=4.8.0
 streamlit>=1.30.0
 plotly>=5.18.0
