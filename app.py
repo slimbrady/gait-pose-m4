@@ -82,6 +82,7 @@ with tempfile.TemporaryDirectory() as tmpdir:
     with st.spinner("Computing biomechanics…"):
         try:
             df_angles, summary = compute_metrics(kpts_json, px_to_m=px_to_m, height_m=height_m)
+            st.session_state['inference_fps'] = summary.get('fps', 30.0)
         except Exception as e:
             st.error(f"Metrics failed: {e}")
             st.stop()
