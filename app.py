@@ -13,6 +13,9 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 
+from supabase_export_ui import render_supabase_export
+import numpy as np
+
 # Local imports
 from inference import run_inference
 from metrics import compute_metrics
@@ -66,6 +69,12 @@ with tempfile.TemporaryDirectory() as tmpdir:
                 device='cpu',
                 det_score_thr=det_thr,
             )
+            # Load keypoints for Supabase export
+            with open(kpts_json) as f:
+                kpts_data = json.load(f)
+            # Save to session for the export UI
+            st.session_state['kpts_np'] = np.array(kpts_data)
+            st.session_state['video_path_str'] = str(video_path)
         except Exception as e:
             st.error(f"Inference failed: {e}")
             st.stop()
@@ -161,6 +170,17 @@ fig.update_layout(
     margin=dict(l=10, r=10, t=10, b=10),
 )
 st.plotly_chart(fig, use_container_width=True)
+
+# --- Supabase / Sheets Export ---
+if 'kpts_np' in st.session_state:
+    render_supabase_export(
+        keypoints=st.session_state['kpts_np'],
+        fps=st.session_state.get('inference_fps', 30.0),
+        video_path=st.session_state.get('video_path_str', 'video.mp4'),
+        engine="rtmpose",
+        model_version="rtmpose-m",
+        default_view="sagittal",
+    )
 
 # Downloads
 st.subheader("⬇️ Downloads")
