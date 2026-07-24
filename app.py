@@ -16,6 +16,9 @@ import plotly.graph_objects as go
 from supabase_export_ui import render_supabase_export
 import numpy as np
 
+import inference
+print("INFERENCE FILE:", inference.__file__)
+
 # Local imports
 from inference import run_inference
 from metrics import compute_metrics
