@@ -112,9 +112,13 @@ def run_inference(
     # PoseTracker(Body) = YOLOX detector + RTMPose estimator, all-in-one
     # mode='balanced' ≈ RTMPose-m accuracy/speed tradeoff, good for M4
     # modes: 'performance' (bigger, slower), 'balanced', 'lightweight' (fastest)
-    pose_tracker = PoseTracker(
-        Body,
-        mode='balanced',
+    from rtmlib import Body
+
+    pose_tracker = Body(
+        det='https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/yolox_m_8xb8-300e_humanart-c2c7a14a.zip',
+        det_input_size=(640, 640),
+        pose='https://download.openmmlab.com/mmpose/v1/projects/rtmposev1/onnx_sdk/rtmpose-m_simcc-body7_pt-body7_420e-256x192-e48f03d0_20230504.zip',
+        pose_input_size=(192, 256),
         backend='onnxruntime',
         device=device
     )
