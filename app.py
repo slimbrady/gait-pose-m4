@@ -11,6 +11,12 @@ import plotly.express as px
 import plotly.graph_objects as go
 import numpy as np
 
+from supabase_export_ui import render_supabase_export
+import numpy as np
+
+import inference
+print("INFERENCE FILE:", inference.__file__)
+
 # Local imports
 from inference import run_inference
 from metrics import compute_metrics
@@ -239,6 +245,17 @@ if SUPABASE_EXPORT_AVAILABLE and 'kpts_np' in st.session_state:
             video_path=st.session_state.get('video_path_str','video.mp4'),
             engine="rtmpose", model_version="rtmpose-m", default_view="sagittal")
     except Exception: pass
+
+# --- Supabase / Sheets Export ---
+if 'kpts_np' in st.session_state:
+    render_supabase_export(
+        keypoints=st.session_state['kpts_np'],
+        fps=st.session_state.get('inference_fps', 30.0),
+        video_path=st.session_state.get('video_path_str', 'video.mp4'),
+        engine="rtmpose",
+        model_version="rtmpose-m",
+        default_view="sagittal",
+    )
 
 # Downloads
 st.subheader("⬇️ Downloads")

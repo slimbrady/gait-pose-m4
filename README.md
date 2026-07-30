@@ -143,6 +143,32 @@ gait-pose-m4/
 
 ---
 
+## 📚 References
+
+### RTMPose / 2D pose-based gait validation
+
+1. **Guo & Zhao 2024** – "A study on gait analysis based on the pose estimation algorithm RTMPose using knee angle as a metric".  
+   *Direct RTMPose gait validation using knee joint angles – demonstrates COCO-keypoint kinematic extraction, the exact pipeline used in gait-pose-m4.*
+
+2. **Menychtas et al. 2023** – "Gait analysis comparison between manual marking, 2D pose estimation algorithms, and 3D marker-based system". *Frontiers in Rehabilitation Sciences* 4:1238134. https://doi.org/10.3389/fresc.2023.1238134  
+   *Head-to-head comparison of 2D pose estimation vs manual marking vs 3D marker-based gait – joint angles / ROM validation, directly validates the COCO-keypoint → angle workflow used here.*
+
+3. **Wade et al. 2022** – "Applications and limitations of current markerless motion capture methods for clinical gait biomechanics". *PeerJ* 10:e12995. https://doi.org/10.7717/peerj.12995 (318 citations)  
+   *Highly-cited methodological review of markerless gait analysis – spatiotemporal parameters, joint kinematics, validation framework; foundational reference for 2D pose-based pipelines like RTMPose.*
+
+4. **Tang et al. 2022** – "Comparison of Lower Extremity Joint Moment and Power Estimated by Markerless and Marker-Based Systems during Treadmill Running". *Biomechanics* 9(4):574. https://doi.org/10.3390/biomechanics9040574  
+   *Direct markerless vs marker-based validation for running kinematics/kinetics on treadmill – lower extremity joint moments/powers, validates running-specific gait metrics (cadence, speed, ground contact).*
+
+5. **Johnson et al. 2022** – "Agreement Between Sagittal Foot and Tibia Angles During Running Derived From an Open-Source Markerless Motion Capture Platform and Manual Digitization". *J Appl Biomech*, 2022.  
+   *Open-source markerless running gait validation – sagittal foot/tibia angles, directly applicable to the 2D ankle dorsi/plantarflexion tracking in gait-pose-m4.*
+
+### Additional reading
+
+- **Chougule et al. 2026** – "Accuracy and Validity of 3D Markerless Motion Capture Compared to Marker-Based Systems for Lower-Limb Biomechanical Assessment: A Systematic Review". *Sensors* 26(12):3956.  
+  *Systematic review covering joint ROM and spatiotemporal parameter validation across markerless systems.*
+
+---
+
 ## License
 
 MIT – do what you want, just don't blame me if your marathon time doesn't improve.
