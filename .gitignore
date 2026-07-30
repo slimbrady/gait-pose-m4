@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.Python
+venv/
+env/
+*.egg-info/
+dist/
+build/
+
+# Secrets
+service_account.json
+.env
+secrets.toml
+
+# Outputs
+*.mp4
+*.mov
+*.avi
+keypoints_*.json
+*_angles.csv
+*_summary.json
+
+# OS
+.DS_Store
+.vscode/
+.idea/
